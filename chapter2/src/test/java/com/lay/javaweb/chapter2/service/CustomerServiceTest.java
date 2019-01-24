@@ -2,10 +2,16 @@ package com.lay.javaweb.chapter2.service;
 
 import com.lay.javaweb.chapter2.helper.DatabaseHelper;
 import com.lay.javaweb.chapter2.model.Customer;
+import com.lay.javaweb.chapter2.util.BeanUtil;
+import com.lay.javaweb.chapter2.util.support.BeanKit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 
@@ -25,8 +31,10 @@ public class CustomerServiceTest {
         customerService=new CustomerService();
     }
     @Before
-    public void init(){
+    public void init() throws IOException {
         //初始化数据库
+        String file="sql/customer_init.sql";
+        DatabaseHelper.executeSqlFile(file);
     }
 
     @Test
@@ -71,9 +79,31 @@ public class CustomerServiceTest {
     }
 
     @Test
+    public void updatCustomerAll() {
+        Long id=1L;
+        Customer customer=new Customer();
+        customer.setId(id);
+        customer.setContact("John");
+        boolean result = customerService.updateCustomerAll(customer);
+        Assert.assertTrue(result);
+    }
+
+    @Test
     public void deleteCustomer() {
         Long id=1L;
         boolean result=customerService.deleteCustomer(id);
         Assert.assertTrue(result);
+    }
+
+    @Test
+    public void testBeanKit() {
+        Customer customer=new Customer();
+        customer.setName("customer100");
+        customer.setContact("John");
+        customer.setTelephone("13212345421");
+        customer.setEmail("john@gmail.com");
+        Map<String, Object> objectMap = BeanKit.beanToMap(customer);
+        Map<String, Object> objectMap1 = BeanUtil.beanToMapWithNull(customer);
+        objectMap.values().toArray();
     }
 }

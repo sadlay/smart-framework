@@ -36,16 +36,21 @@ public class CustomerService {
 
     //创建客户
     public boolean createCustomer(Customer customer){
-        return false;
+        return DatabaseHelper.insertEntity(customer);
     }
 
     //更新客户
     public boolean updateCustomer(Customer customer){
-        return false;
+        return DatabaseHelper.updateEntityById(customer);
+    }
+
+    //全量更新
+    public boolean updateCustomerAll(Customer customer){
+        return DatabaseHelper.updateAllEntityById(customer);
     }
 
     //删除客户
     public boolean deleteCustomer(Long id){
-        return false;
+        return DatabaseHelper.deleteEntity(Customer.class,id);
     }
 }
