@@ -405,3 +405,603 @@ public class ConfigHelper {
 
 ### 开发一个类加载器
 
+我们需要开发一个类加载器例来加载该基础包下的所有类，比如使用了某注解的类，或者实现了某接口的类，在或者继承了某父类的所有子类等。
+
+为此我们需要一个`ClassUtil`工具类，提供与类操作相关的方法，比如获取类加载器，加载类，获取指定包名下的所有类等等。代码如下：
+
+```java
+package com.lay.smartframework.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.net.JarURLConnection;
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+
+/**
+ * @Description:类操作工具类
+ * @Author: lay
+ * @Date: Created in 14:48 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+public final class ClassUtil {
+
+    private static final Logger LOGGER= LoggerFactory.getLogger(ClassUtil.class);
+
+    /**
+     *
+     * @Description: 获取类加载器
+     * @param:
+     * @return: java.lang.ClassLoader
+     * @auther: lay
+     * @date: 14:51 2019/1/25
+     */
+    public static ClassLoader getClassLoader(){
+        return Thread.currentThread().getContextClassLoader();
+    }
+
+
+    /**
+     *
+     * @Description: 加载类
+     * @param:
+     * @param className
+     * @param isInitialized 是否执行类的静态代码块
+     * @return: java.lang.Class<?>
+     * @auther: lay
+     * @date: 14:52 2019/1/25
+     */
+    public static Class<?>  loadClass(String className,boolean isInitialized){
+        Class clz;
+        try{
+            clz=Class.forName(className,isInitialized,getClassLoader());
+        } catch (ClassNotFoundException e) {
+            LOGGER.error("load class failure",e);
+            throw new RuntimeException(e);
+        }
+        return clz;
+    }
+
+
+    /**
+     *
+     * @Description: 获取指定包下的所有类
+     * @param:
+     * @param packageName
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 14:53 2019/1/25
+     */
+    public static Set<Class<?>> getClassSet(String packageName){
+        Set<Class<?>> classSet=new HashSet<Class<?>>();
+        try {
+            Enumeration<URL> urls = getClassLoader().getResources(packageName.replace(".", "/"));
+            while (urls.hasMoreElements()){
+                URL url = urls.nextElement();
+                if(url!=null){
+                    String protocol=url.getProtocol();
+                    if(protocol.equals("file")){
+                        String packagePath = url.getPath().replace("%20", " ");//transfer space
+                        addClass(classSet,packagePath,packageName);
+                    }else if (protocol.equals("jar")){
+                        JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
+                        if(jarURLConnection!=null){
+                            JarFile jarFile = jarURLConnection.getJarFile();
+                            if(jarFile!=null){
+                                Enumeration<JarEntry> entries = jarFile.entries();
+                                while (entries.hasMoreElements()){
+                                    JarEntry jarEntry = entries.nextElement();
+                                    String jarEntryName = jarEntry.getName();
+                                    if(jarEntryName.endsWith(".class")){
+                                        String className=jarEntryName.substring(0,jarEntryName.lastIndexOf(".")).replaceAll("/",".");
+                                        doAddClass(classSet,className);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("get Class-Set failure",e);
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+
+    /**
+     *
+     * @Description: 递归遍历添加class
+     * @param:
+     * @param classSet
+     * @param packagePath
+     * @param packageName
+     * @return: void
+     * @auther: lay
+     * @date: 16:10 2019/1/25
+     */
+    private static void addClass(Set<Class<?>> classSet, String packagePath, String packageName) {
+        File[] files = new File(packagePath).listFiles(file -> (file.isFile()&&file.getName().endsWith(".class"))||file.isDirectory());
+        for (File file : files) {
+            String fileName=file.getName();
+            if(file.isFile()){
+                String className=fileName.substring(0,fileName.lastIndexOf("."));
+                if(StringUtil.isNotEmpty(packageName)){
+                    className=packageName+"."+className;
+                }
+                doAddClass(classSet,className);
+            }else {
+                String subPackagePath=fileName;
+                if(StringUtil.isNotEmpty(packagePath)){
+                    subPackagePath=packagePath+"/"+subPackagePath;
+                }
+                String subPackageName=fileName;
+                if(StringUtil.isNotEmpty(packageName)){
+                    subPackageName=packageName+"."+subPackageName;
+                }
+                addClass(classSet,subPackagePath,subPackageName);
+            }
+
+        }
+    }
+
+    /**
+     *
+     * @Description: 加载类
+     * @param:
+     * @param classSet
+     * @param className
+     * @return: void
+     * @auther: lay
+     * @date: 16:10 2019/1/25
+     */
+    private static void doAddClass(Set<Class<?>> classSet, String className) {
+        //为了提高加载类的性能，这里参数为false
+        Class<?> cls = loadClass(className, false);
+        classSet.add(cls);
+
+    }
+}
+
+```
+
+### 开发注解
+
+这里我们的目标是在控制器类上使用`@Controller`注解，在控制器方法上使用`@Action`注解，在服务类上使用
+
+`@Service`注解，在控制器类中可使用`@Inject`注解将服务类依赖注入进来。因此我们需要自定义这四个注解。
+
+控制器注解
+
+```java
+package com.lay.smartframework.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * @Description: 控制器注解
+ * @Author: lay
+ * @Date: Created in 16:38 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Controller {
+
+}
+
+```
+
+Action方法
+
+```java
+package com.lay.smartframework.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * @Description: 方法注解
+ * @Author: lay
+ * @Date: Created in 16:43 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Action {
+
+    /**
+     *
+     * @Description: 请求类型与路径
+     * @param:
+     * @return: java.lang.String
+     * @auther: lay
+     * @date: 16:45 2019/1/25
+     */
+    String value();
+}
+
+```
+
+服务类注解
+
+```java
+package com.lay.smartframework.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * @Description: 服务类注解
+ * @Author: lay
+ * @Date: Created in 16:46 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Service {
+}
+
+```
+
+依赖注入注解
+
+```java
+package com.lay.smartframework.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * @Description: 依赖注入注解
+ * @Author: lay
+ * @Date: Created in 16:47 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Inject {
+}
+
+```
+
+因为我们在`smart.properties`配置文件中指定了`smart.framework.app.base_package`。它是整个应用的基础包，以通过ClassUtil加载的类都需要基于该基础包名。所以有必要提供一个`ClassHelper`助手类。此外，我们可以将带有`@Controller`和`@Service`注解所产生的对象理解为有Smart框架所管理的Bean。所以有必要在`ClassHelper`中增加一个获取应用包名下所有bean类的方法。代码如下
+
+```java
+package com.lay.smartframework.helper;
+
+import com.lay.smartframework.annotation.Controller;
+import com.lay.smartframework.annotation.Service;
+import com.lay.smartframework.util.ClassUtil;
+
+import java.lang.annotation.Annotation;
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * @Description: 类操作助手类
+ * @Author: lay
+ * @Date: Created in 14:47 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+public final class ClassHelper {
+
+    //定义类集合（用于存放锁加载的类）
+    private static final Set<Class<?>> CLASS_SET;
+
+    static {
+        String basePackage=ConfigHelper.getAppBasePackage();
+        CLASS_SET= ClassUtil.getClassSet(basePackage);
+    }
+
+    /**
+     *
+     * @Description: 获取应用包下所有类
+     * @param:
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 16:52 2019/1/25
+     */
+    public static Set<Class<?>> getClassSet(){
+        return CLASS_SET;
+    }
+    /**
+     *
+     * @Description: 获取应用包下所有Service类
+     * @param:
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 17:03 2019/1/25
+     */
+    public static Set<Class<?>> getServiceClassSet(){
+        return getClassSet(Service.class);
+    }
+
+
+    /**
+     *
+     * @Description: 获取应用包下所有Controller类
+     * @param:
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 17:04 2019/1/25
+     */
+    public static Set<Class<?>> getControllerClassSet(){
+        return getClassSet(Controller.class);
+    }
+
+    /**
+     *
+     * @Description: 获取应用包下所有Bean类（包括service,controller）
+     * @param:
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 17:07 2019/1/25
+     */
+    public static Set<Class<?>> getBeanClassSet(){
+        Set<Class<?>> beanClassSet=new HashSet<>();
+        beanClassSet.addAll(getServiceClassSet());
+        beanClassSet.addAll(getControllerClassSet());
+        return beanClassSet;
+    }
+    /**
+     *
+     * @Description: 根据注解类型获取应用包下相应类
+     * @param:
+     * @param clz
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 17:01 2019/1/25
+     */
+    public static Set<Class<?>> getClassSet(Class<? extends Annotation> clz){
+        Set<Class<?>> classSet=new HashSet<Class<?>>();
+        for (Class<?> c : CLASS_SET) {
+            if(c.isAnnotationPresent(clz)){
+                classSet.add(c);
+            }
+        }
+        return classSet;
+    }
+
+}
+
+```
+
+### 实现Bean容器
+
+使用`ClassHelper`类可以获取所加载的类，但无法通过类来实例化对象。因此，需要提供一个反射工具类ReflectionUtil，让它封装Java反射相关的API，对外提供更好的工具方法。
+
+```java
+package com.lay.smartframework.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+/**
+ * @Description: 反射工具类
+ * @Author: lay
+ * @Date: Created in 17:09 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+public final class ReflectionUtil {
+
+    private static final Logger LOGGER= LoggerFactory.getLogger(ReflectionUtil.class);
+
+    /**
+     *
+     * @Description: 创建实例
+     * @param:
+     * @param clz
+     * @return: java.lang.Object
+     * @auther: lay
+     * @date: 17:13 2019/1/25
+     */
+    public static Object newInstance(Class<?> clz){
+        Object instance;
+        try {
+            instance=clz.newInstance();
+        } catch (Exception e) {
+            LOGGER.error("new instance failure",e);
+            throw new RuntimeException(e);
+        }
+        return instance;
+    }
+
+    /**
+     *
+     * @Description: 调用方法
+     * @param:
+     * @param obj
+     * @param method
+     * @param args
+     * @return: java.lang.Object
+     * @auther: lay
+     * @date: 17:14 2019/1/25
+     */
+    public static Object invokeMethod(Object obj, Method method,Object...args){
+        Object result;
+        try {
+            method.setAccessible(true);
+            result=method.invoke(obj,args);
+        } catch (Exception e) {
+            LOGGER.error("invoke method failure",e);
+            throw new RuntimeException(e);
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @Description: 设置成员变量的值
+     * @param:
+     * @param obj
+     * @param field
+     * @param value
+     * @return: void
+     * @auther: lay
+     * @date: 17:17 2019/1/25
+     */
+    public static void setField(Object obj, Field field,Object value){
+        try {
+            field.setAccessible(true);
+            field.set(obj,value);
+        } catch (IllegalAccessException e) {
+            LOGGER.error("set field failure",e);
+            throw new RuntimeException(e);
+        }
+    }
+
+}
+
+```
+
+我们需要获取所有被Smart管理的bean类，此时需要调用ClassHelper类的getBeanClassSe()方法，随后需要循环调用RefectionUtil类的newInstance方法，根据类来实例化对象，最后将每次创建的对象存放在一个静态的Map中。我们需要随时获取该map，还需要通过map的key（类名）去获取所对应的value（bean对象）。BeanHelper代码如下：
+
+```java
+package com.lay.smartframework.helper;
+
+import com.lay.smartframework.util.ReflectionUtil;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * @Description: Bean助手类
+ * @Author: lay
+ * @Date: Created in 17:20 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+public final class BeanHelper {
+
+    //定义 Bean 映射（用于存放 Bean 类与 Bean 实例的映射关系）
+    private static final Map<Class<?>, Object> BEAN_MAP = new HashMap<Class<?>, Object>();
+
+    static {
+        Set<Class<?>> beanClassSet=ClassHelper.getBeanClassSet();
+        for (Class<?>  beanClass: beanClassSet) {
+            Object obj= ReflectionUtil.newInstance(beanClass);
+            BEAN_MAP.put(beanClass,obj);
+        }
+    }
+
+    /**
+     *
+     * @Description: 获取 Bean 映射
+     * @param:
+     * @return: java.util.Map<java.lang.Class<?>,java.lang.Object>
+     * @auther: lay
+     * @date: 17:26 2019/1/25
+     */
+    public static Map<Class<?>, Object> getBeanMap(){
+        return BEAN_MAP;
+    }
+
+    /**
+     *
+     * @Description: 获取 Bean 实例
+     * @param:
+     * @param cls
+     * @return: T
+     * @auther: lay
+     * @date: 17:27 2019/1/25
+     */
+    public static <T> T getBean(Class<T> cls){
+        if(!BEAN_MAP.containsKey(cls)){
+            throw new RuntimeException("can not get bean by class:{}"+cls);
+        }
+        return (T)BEAN_MAP.get(cls);
+    }
+}
+
+```
+
+现在BeanHelper相当于一个bean容器了，因为在bean map中存放了bean类与bean实例的映射关系，我们只需要通过调用getBean方法，传入一个bean类，就能获取bean的实例。
+
+### 实现依赖注入的功能
+
+我们在Controller中定义Servic成员变量，然后在Controller的Action方法调用Service成员变量的方法。那么如何实例化Service成员变量呢。
+
+为此我们定义的@Inject注解就是来实现Service的实例化。
+
+我们通过BeanHelper获取所有的bean map结构，里面记录了类与对象的映射关系，然后遍历这个映射关系，分别取出bean类与bean实例。进而通过反射获取类中的所有成员遍历。继续遍历这些成员变量，在寻源中判断当前成员变量是否带有@Inject注解，若带有该注解，则从bean map中根据bean类取出bean实例，最后通过RefecltionUtil#setField方法来修改当前成员变量的值。
+
+我们把如上逻辑写一个IocHelper类，让它来完成这件事。
+
+```java
+package com.lay.smartframework.helper;
+
+import com.lay.smartframework.annotation.Inject;
+import com.lay.smartframework.util.CollectionUtil;
+import com.lay.smartframework.util.ReflectionUtil;
+import org.apache.commons.lang3.ArrayUtils;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+
+/**
+ * @Description: 依赖注入助手类
+ * @Author: lay
+ * @Date: Created in 17:31 2019/1/25
+ * @Modified By:IntelliJ IDEA
+ */
+public final class IocHelper {
+    static {
+        //获取所有的 Bean 类与 bean 实例之间的映射关系（简称 Bean Map）
+        Map<Class<?>, Object> beanMap = BeanHelper.getBeanMap();
+        if(CollectionUtil.isNotEmpty(beanMap)){
+            //遍历 beanMap
+            for (Map.Entry<Class<?>, Object> beanEntry : beanMap.entrySet()) {
+                //从 beanMap 中获取 bean类与 bean的实例
+                Class<?> beanClass = beanEntry.getKey();
+                Object beanInstance = beanEntry.getValue();
+
+                //获取 Bean 类中定义的所有成员变量（ bean filed）
+                Field[] beanFields = beanClass.getDeclaredFields();
+                if(ArrayUtils.isNotEmpty(beanFields)){
+                    //是遍历 beanFields
+                    for (Field field : beanFields) {
+                        //判断变量是否带有 @Inject 注解
+                        if(field.isAnnotationPresent(Inject.class)){
+                            //在bean map中获取 field对应的实例
+                            Class<?> beanTypeClass = field.getType();
+                            Object beanFieldInstance = beanMap.get(beanTypeClass);
+                            if(beanFieldInstance!=null){
+                                //通过反射初始化 beanField的值
+                                ReflectionUtil.setField(beanInstance,field,beanFieldInstance);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+```
+
+只需要在IocHelper的静态块中实现相关逻辑，就能完成Ioc容器的初始化工作。那么，这个静态块在什么时候加载呢？其实当IocHelper这个类被加载的时候，就会加载它的静态块，后面我们需要找一个统一的地方来加载这个IocHelper。
+
+值得注意的是，此时在Ioc框架所管理的对象都是单例的，由于Ioc框架底层还是从BeanHelper中获取bean Map的，而bean map中的对象都是实现创建好并放入这个bean容器的，所有的对象都是单例的。
+
