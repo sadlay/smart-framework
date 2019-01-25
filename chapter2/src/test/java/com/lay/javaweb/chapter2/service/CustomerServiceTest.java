@@ -8,10 +8,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +33,42 @@ public class CustomerServiceTest {
         String file="sql/customer_init.sql";
         DatabaseHelper.executeSqlFile(file);
     }
+
+    public static void main(String[] args) throws IOException {
+        //初始化数据库
+        String file="sql/customer_init.sql";
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(file);
+        InputStreamReader inputStreamReader = new InputStreamReader(is);
+        int read=0;
+/*        while ( (read = inputStreamReader.read())!=-1){
+            System.out.println(read);
+        }*/
+        BufferedReader reader=new BufferedReader(new InputStreamReader(is));
+        try {
+            String sql;
+            while ((sql=reader.readLine())!=null){
+                //System.out.println(sql);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+/*        InputStream in = System.in;
+        BufferedReader bf=new BufferedReader(new InputStreamReader(in));
+        String c;
+        do {
+            String read2 = bf.readLine();
+            c= read2;
+            System.out.println("输入的字符串："+c);
+        }while (!c.equals("end"));*/
+        int b;
+        b='a';
+        BufferedWriter bw=new BufferedWriter(new PrintWriter(System.out));
+        bw.write('a');
+/*        System.out.println(b);
+        System.out.write(77);
+        System.out.write('\n');*/
+    }
+
 
     @Test
     public void getCustomerList() {
