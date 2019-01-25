@@ -13,7 +13,7 @@ import java.util.Map;
  * @Date: Created in 16:35 2019/1/23
  * @Modified By:IntelliJ IDEA
  */
-public class StringUtil {
+public final class StringUtil {
     public static final String EMPTY = "";
     public static final int INDEX_NOT_FOUND = -1;
     public static final String[] EMPTY_STRING_ARRAY = new String[0];

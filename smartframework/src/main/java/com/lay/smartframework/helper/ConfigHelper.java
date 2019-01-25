@@ -11,7 +11,7 @@ import java.util.Properties;
  * @Date: Created in 11:31 2019/1/25
  * @Modified By:IntelliJ IDEA
  */
-public class ConfigHelper {
+public final class ConfigHelper {
     private static final Properties CONFIG_PROPS= PropsUtil.loadProps(ConfigConstant.CONFIG_FILE);
 
     //获取JDBC驱动

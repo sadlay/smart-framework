@@ -15,7 +15,7 @@ import java.util.ResourceBundle;
  * @Date: Created in 16:01 2019/1/23
  * @Modified By:IntelliJ IDEA
  */
-public class PropsUtil {
+public final class PropsUtil {
 
     private static final Logger LOGGER= LoggerFactory.getLogger(PropsUtil.class);
 

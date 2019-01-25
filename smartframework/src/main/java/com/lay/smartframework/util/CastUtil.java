@@ -7,7 +7,7 @@ package com.lay.smartframework.util;
  * @Date: Created in 16:17 2019/1/23
  * @Modified By:IntelliJ IDEA
  */
-public class CastUtil {
+public final class CastUtil {
 
     //转为String型
 

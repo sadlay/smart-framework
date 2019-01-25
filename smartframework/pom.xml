@@ -10,6 +10,9 @@
     <packaging>jar</packaging>
 
     <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
         <!-- 统一源代码的编码方式，否则使用maven编译源代码的时候就会出现相关警告-->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
