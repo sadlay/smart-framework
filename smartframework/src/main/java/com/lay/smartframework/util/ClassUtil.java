@@ -33,7 +33,19 @@ public final class ClassUtil {
     public static ClassLoader getClassLoader(){
         return Thread.currentThread().getContextClassLoader();
     }
-
+    /**
+     *
+     * @Description: 加载类
+     * @param:
+     * @param className
+     * @return: java.lang.Class<?>
+     * @auther: lay
+     * @date: 14:52 2019/1/25
+     */
+    public static Class<?>  loadClass(String className){
+        Class<?> clz = loadClass(className, true);
+        return clz;
+    }
 
     /**
      *
@@ -100,7 +112,7 @@ public final class ClassUtil {
             LOGGER.error("get Class-Set failure",e);
             throw new RuntimeException(e);
         }
-        return null;
+        return classSet;
     }
 
 

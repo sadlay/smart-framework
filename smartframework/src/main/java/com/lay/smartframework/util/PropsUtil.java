@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 /**
  * @Description:属性文件工具类
@@ -56,7 +57,7 @@ public final class PropsUtil {
     //获取字符型属性（可指定默认值）
     public static String getString(Properties props, String key, String defaultValue) {
         String value=defaultValue;
-        if(props.contains(key)){
+        if(props.keySet().contains(key)){
             value=props.getProperty(key);
         }
         return value;
