@@ -2,6 +2,7 @@ package com.lay.smartframework;
 
 import com.lay.smartframework.helper.BeanHelper;
 import com.lay.smartframework.helper.ClassHelper;
+import com.lay.smartframework.helper.ControllerHelper;
 import com.lay.smartframework.helper.IocHelper;
 import com.lay.smartframework.util.ClassUtil;
 
@@ -16,7 +17,8 @@ public class HelperLoader {
         Class<?>[] classList = {
                 ClassHelper.class,
                 BeanHelper.class,
-                IocHelper.class
+                IocHelper.class,
+                ControllerHelper.class
         };
         for (Class<?> cls : classList) {
             ClassUtil.loadClass(cls.getName());

@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * @Date: Created in 16:43 2019/1/25
  * @Modified By:IntelliJ IDEA
  */
-@Target(ElementType.TYPE)
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Action {
 
