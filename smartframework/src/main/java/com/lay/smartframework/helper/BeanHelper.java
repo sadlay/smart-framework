@@ -1,10 +1,9 @@
 package com.lay.smartframework.helper;
 
+import com.lay.smartframework.util.CollectionUtil;
 import com.lay.smartframework.util.ReflectionUtil;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @Description: Bean助手类
@@ -47,9 +46,27 @@ public final class BeanHelper {
      * @date: 17:27 2019/1/25
      */
     public static <T> T getBean(Class<T> cls){
-        if(!BEAN_MAP.containsKey(cls)){
+        List<T> beanList = new ArrayList<>();
+/*        if(BEAN_MAP.containsKey(cls)){
+            cls.equals()
+            return (T)BEAN_MAP.get(cls);
+        }*/
+        for (Map.Entry<Class<?>, Object> classObjectEntry : BEAN_MAP.entrySet()) {
+            Class<?> keyClass = classObjectEntry.getKey();
+            Object valueObj = classObjectEntry.getValue();
+            if(cls.isAssignableFrom(keyClass)){
+                beanList.add((T) valueObj);
+            }
+        }
+        if(CollectionUtil.isEmpty(beanList)){
             throw new RuntimeException("can not get bean by class:{}"+cls);
         }
-        return (T)BEAN_MAP.get(cls);
+        if(beanList.size()>1){
+            throw new RuntimeException("get bean by class:{}"+cls+" has more than one instance");
+        }
+        return beanList.get(0);
+
+
+
     }
 }

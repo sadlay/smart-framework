@@ -8,7 +8,6 @@ import com.lay.smartframework.annotation.Service;
  * @Date: Created in 23:55 2019/1/30
  * @Modified By:IntelliJ IDEA
  */
-@Service
-public class HelloService {
-    private static final String helloService="Hello Service";
+public interface HelloService {
+    public String sayHello();
 }

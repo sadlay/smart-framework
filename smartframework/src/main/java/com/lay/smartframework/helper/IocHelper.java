@@ -34,7 +34,7 @@ public final class IocHelper {
                         if(field.isAnnotationPresent(Inject.class)){
                             //在bean map中获取 field对应的实例
                             Class<?> beanTypeClass = field.getType();
-                            Object beanFieldInstance = beanMap.get(beanTypeClass);
+                            Object beanFieldInstance = BeanHelper.getBean(beanTypeClass);
                             if(beanFieldInstance!=null){
                                 //通过反射初始化 beanField的值
                                 ReflectionUtil.setField(beanInstance,field,beanFieldInstance);
@@ -45,4 +45,6 @@ public final class IocHelper {
             }
         }
     }
+
+
 }

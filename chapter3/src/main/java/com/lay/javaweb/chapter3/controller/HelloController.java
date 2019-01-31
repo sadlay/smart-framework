@@ -19,6 +19,6 @@ public class HelloController {
 
     @Action("get:/hello")
     public String hello(){
-        return "hello";
+        return helloService.sayHello();
     }
 }
