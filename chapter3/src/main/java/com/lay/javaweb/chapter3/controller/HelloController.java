@@ -5,6 +5,8 @@ import com.lay.smartframework.annotation.Action;
 import com.lay.smartframework.annotation.Controller;
 import com.lay.smartframework.annotation.Inject;
 import com.lay.smartframework.annotation.Service;
+import com.lay.smartframework.bean.Data;
+import com.lay.smartframework.bean.Param;
 
 /**
  * @Description:
@@ -18,7 +20,8 @@ public class HelloController {
     private HelloService helloService;
 
     @Action("get:/hello")
-    public String hello(){
-        return helloService.sayHello();
+    public Data hello(Param param){
+        Data data=new Data(helloService.sayHello());
+        return data;
     }
 }

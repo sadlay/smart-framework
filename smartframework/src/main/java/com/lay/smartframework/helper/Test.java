@@ -1,5 +1,9 @@
 package com.lay.smartframework.helper;
 
+import com.lay.smartframework.util.ClassUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -10,6 +14,7 @@ import java.lang.reflect.Modifier;
  * @Modified By:IntelliJ IDEA
  */
 public class Test {
+    private static final Logger LOGGER= LoggerFactory.getLogger(Test.class);
 
     public static void main(String[] args) throws ClassNotFoundException, IllegalAccessException, InstantiationException {
         Field[] mans = Class.class.getDeclaredFields();
@@ -21,6 +26,7 @@ public class Test {
             boolean anInterface = Modifier.isInterface(Person.class.getModifiers());
             boolean anInterface1 = Person.class.isInterface();
             java.lang.Class<?> aClass = java.lang.Class.forName("com.lay.smartframework.helper.Test$Person");
+            LOGGER.error("logger message:{}",man);
             System.out.println(man);
         }
 
