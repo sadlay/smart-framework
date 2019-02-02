@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -77,6 +78,7 @@ public class DispatcherServlet extends HttpServlet {
                             String paramName=array[0];
                             String paramValue=array[1];
                             paramMap.put(paramName,paramValue);
+
                         }
                     }
                 }

@@ -1005,3 +1005,679 @@ public final class IocHelper {
 
 值得注意的是，此时在Ioc框架所管理的对象都是单例的，由于Ioc框架底层还是从BeanHelper中获取bean Map的，而bean map中的对象都是实现创建好并放入这个bean容器的，所有的对象都是单例的。
 
+### 加载Controller
+
+我们需要创建一个ControllerHelper的类，让它来处理如下逻辑：
+
+通过ClassHelper，我们可以获取所有定义了`@Controller`注解的类，可以通过反射获取该类中所有带有`@Action`注解的方法，获取Action注解中的请求表达式，进而获取请求方法与请求路径，封装一个请求对象（Request）和处理对象（Handler），最后将Request与Handler建立一个映射关系，放入要给Action Map中，并提供一个可根据请求方法与请求路径获取处理对象的方法。
+
+首先，我们定义一个名为Request的类，代码如下：
+
+```java
+package com.lay.smartframework.bean;
+
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
+import java.util.Objects;
+
+/**
+ * @Description: 封装请求信息
+ * @Author: lay
+ * @Date: Created in 0:11 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+
+public class Request {
+    //请求方法
+    private String requestMethod;
+
+    //请求路径
+    private String requestPath;
+
+    public Request(String requestMethod, String requestPath) {
+        this.requestMethod = requestMethod;
+        this.requestPath = requestPath;
+    }
+
+    public String getRequestMethod() {
+        return requestMethod;
+    }
+
+    public String getRequestPath() {
+        return requestPath;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return EqualsBuilder.reflectionEquals(this,o);
+    }
+
+    @Override
+    public int hashCode() {
+        return HashCodeBuilder.reflectionHashCode(this);
+    }
+}
+
+```
+
+然后编写一个Handler的类，代码如下：
+
+```java
+package com.lay.smartframework.bean;
+
+import java.lang.reflect.Method;
+import java.util.Set;
+
+/**
+ * @Description: 封装Action信息
+ * @Author: lay
+ * @Date: Created in 0:22 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+public class Handler {
+    //Controller类
+    private Class<?> controllerClass;
+
+    //Action方法
+    private Method method;
+
+    public Handler(Class<?> controllerClass, Method method) {
+        this.controllerClass = controllerClass;
+        this.method = method;
+    }
+
+    public Class<?> getControllerClass() {
+        return controllerClass;
+    }
+
+    public Method getMethod() {
+        return method;
+    }
+}
+
+```
+
+最后写ControllerHelper类，代码如下：
+
+```java
+package com.lay.smartframework.helper;
+
+import com.lay.smartframework.annotation.Action;
+import com.lay.smartframework.bean.Handler;
+import com.lay.smartframework.bean.Request;
+import com.lay.smartframework.util.ArrayUtil;
+import com.lay.smartframework.util.CollectionUtil;
+
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * @Description: 控制器助手类
+ * @Author: lay
+ * @Date: Created in 0:24 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+public final class ControllerHelper {
+
+    //用于存放请求与处理器的映射关系（简称Action Map）
+    private static final Map<Request, Handler> ACTION_MAP = new HashMap<>();
+
+    static{
+        //获取所有的Controller类
+        Set<Class<?>> controllerClassSet = ClassHelper.getControllerClassSet();
+        if(CollectionUtil.isNotEmpty(controllerClassSet)){
+            //遍历这些Controller类
+            for (Class<?> controllerClass : controllerClassSet) {
+                //获取Controller中定义的方法
+                Method[] methods = controllerClass.getDeclaredMethods();
+                if(ArrayUtil.isNotEmpty(methods)){
+                    //遍历这些Controller中的方法
+                    for (Method method : methods) {
+                        //判断当前方法是否带有Action注解
+                        if(method.isAnnotationPresent(Action.class)){
+                            //从Action注解中获取URL映射规则
+                            Action action=method.getAnnotation(Action.class);
+                            String mapping=action.value();
+                            //验证url映射规则
+                            if(mapping.matches("\\w+:/\\w*")){
+                                String[] arrays = mapping.split(":");
+                                if(ArrayUtil.isNotEmpty(arrays)&&arrays.length==2){
+                                    //获取请求方法与请求路径
+                                    String requestMethod=arrays[0];
+                                    String requestPath=arrays[1];
+                                    Request request=new Request(requestMethod,requestPath);
+                                    Handler handler=new Handler(controllerClass,method);
+                                    //初始化Action的map
+                                    ACTION_MAP.put(request,handler);
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+
+    /**
+     *
+     * @Description: 获取Handler
+     * @param:
+     * @param requestMethod
+     * @param requestPath
+     * @return: com.lay.smartframework.bean.Handler
+     * @auther: lay
+     * @date: 0:39 2019/1/31
+     */
+    public static Handler getHandler(String requestMethod,String requestPath){
+        Request request=new Request(requestMethod,requestPath);
+        Handler handler = ACTION_MAP.get(request);
+        return handler;
+    }
+}
+
+```
+
+可以看到，我们在ControllerHelper中封装了一个Action map，通过它来存放Request与Handler之间的映射关系，然后通过ClassHelper来获取所有带有Controller注解的类，接着遍历这些Controller，从Action注解中提取URL，最后初始化Request与Handler之间的映射关系。
+
+### 初始化框架
+
+通过上面的过程，我们一口气创建了ClassHelper、BeanHelper、IocHelper、ControllerHelper，这四个Helper类需要通过一个入口程序来加载它们，实际上是加载它们的静态块。
+
+我们写一个加载类HelperLoader，代码如下：
+
+```java
+package com.lay.smartframework;
+
+import com.lay.smartframework.helper.BeanHelper;
+import com.lay.smartframework.helper.ClassHelper;
+import com.lay.smartframework.helper.ControllerHelper;
+import com.lay.smartframework.helper.IocHelper;
+import com.lay.smartframework.util.ClassUtil;
+
+/**
+ * @Description: 加载相应的Helper类
+ * @Author: lay
+ * @Date: Created in 23:10 2019/1/30
+ * @Modified By:IntelliJ IDEA
+ */
+public class HelperLoader {
+    public static void init() {
+        Class<?>[] classList = {
+                ClassHelper.class,
+                BeanHelper.class,
+                IocHelper.class,
+                ControllerHelper.class
+        };
+        for (Class<?> cls : classList) {
+            ClassUtil.loadClass(cls.getName());
+        }
+    }
+}
+
+```
+
+现在我们可以直接调用HelperLoader中的init方法来加载这些Helper类了。实际上，当我们在第一次访问类时，就会加载其static块，这里只是为了让加载更加集中，所以才写了一个HelperLoader类。
+
+### 请求转发器
+
+以上过程都是在为这一步做准备，我们现在需要编写一个Servlet，让它来处理所有的请求，从HttpServletRequest对象中获取请求方法与请求路径，通过ControllerHelper#getHandler方法来获取Handler对象。
+
+当拿到Handler对象后，我们可以方便地获取Controller的类，进而通过BeanHelper#getBean方法获取Controller的实例对象。
+
+随后可以从HttpServletRequest对象中获取所有请求参数，并将其初始化到一个名为Param的对象中，Param类代码如下：
+
+```java
+package com.lay.smartframework.bean;
+
+import com.lay.smartframework.util.CastUtil;
+
+import java.util.Map;
+
+/**
+ * @Description: 请求参数对象
+ * @Author: lay
+ * @Date: Created in 23:45 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+public class Param {
+    private Map<String,Object> paramMap;
+
+    public Param(Map<String, Object> paramMap) {
+        this.paramMap = paramMap;
+    }
+    /**
+     *
+     * @Description: 根据参数名获取long类型参数
+     * @param:
+     * @param name
+     * @return: long
+     * @auther: lay
+     * @date: 23:47 2019/1/31
+     */
+    public long getLong(String name){
+        return CastUtil.castLong(paramMap.get(name));
+    }
+    /**
+     *
+     * @Description: 获取所有字段信息
+     * @param:
+     * @return: java.util.Map<java.lang.String,java.lang.Object>
+     * @auther: lay
+     * @date: 23:46 2019/1/31
+     */
+    public Map<String, Object> getParamMap() {
+        return paramMap;
+    }
+}
+
+```
+
+在Param类中，会有一系列的get方法，可通过参数名获取指定类型的参数值，也可以获取所有参数的Map结构。
+
+还可以从Handler对象中获取Action的方法返回值，该返回值可能有如下两种情况：
+
+（1）若返回值是View类型的视图对象，则返回一个Jsp页面。
+
+（2）若返回值是Data类型的数据对象，则返回一个JSON数据。
+
+我们需要根据以上两种情况来判断Action的返回值，并做出不同的处理。
+
+首先，看看View类，代码如下：
+
+```java
+package com.lay.smartframework.bean;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * @Description: 返回视图对象
+ * @Author: lay
+ * @Date: Created in 23:47 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+public class View {
+
+    //视图路径
+    private String path;
+
+    //模型数据
+    private Map<String,Object> model;
+
+    public View(String path) {
+        this.path = path;
+        model=new HashMap<>();
+    }
+
+    public View addModel(String key,Object value){
+        model.put(key,value);
+        return this;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public Map<String, Object> getModel() {
+        return model;
+    }
+}
+
+```
+
+由于视图中是可以包含模型数据的，因此在View中包括了视图路径和该视图中所需要的模型数据，该模型数据是要给Map类型的键值对，可以在视图中根据模型的键名获取键值。
+
+然后，看看Data类，代码如下：
+
+```java
+package com.lay.smartframework.bean;
+
+/**
+ * @Description: 返回数据对象
+ * @Author: lay
+ * @Date: Created in 23:50 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+public class Data {
+
+    //模型数据
+    private Object model;
+
+    public Data(Object model){
+        this.model=model;
+    }
+
+    public Object getModel() {
+        return model;
+    }
+}
+
+```
+
+返回的Data类型的数据封装了一个Object类型的模型数据，框架会将该对象写入HttpServletResponse对象中，从而直接输出至浏览器。
+
+以下便是MVC框架中最核心的DispatcherServlet类，代码如下：
+
+```java
+package com.lay.smartframework;
+
+import com.lay.smartframework.annotation.Controller;
+import com.lay.smartframework.bean.Data;
+import com.lay.smartframework.bean.Handler;
+import com.lay.smartframework.bean.Param;
+import com.lay.smartframework.bean.View;
+import com.lay.smartframework.helper.BeanHelper;
+import com.lay.smartframework.helper.ConfigHelper;
+import com.lay.smartframework.helper.ControllerHelper;
+import com.lay.smartframework.util.*;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRegistration;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * @Description: 请求转发器
+ * @Author: lay
+ * @Date: Created in 23:59 2019/1/31
+ * @Modified By:IntelliJ IDEA
+ */
+@WebServlet(urlPatterns = "/*",loadOnStartup = 0)
+public class DispatcherServlet extends HttpServlet {
+
+    @Override
+    public void init(ServletConfig config) throws ServletException {
+        //初始化相关helper类
+        HelperLoader.init();
+        //获取ServletContext对象（用于注册Servlet）
+        ServletContext servletContext=config.getServletContext();
+        //注册处理JSP的Servlet
+        ServletRegistration jspServlet = servletContext.getServletRegistration("jsp");
+        jspServlet.addMapping(ConfigHelper.getAppJspPath()+"*");
+        //注册处理静态资源的默认Servlet
+        ServletRegistration defaultServlet = servletContext.getServletRegistration("default");
+        defaultServlet.addMapping(ConfigHelper.getAppAssetPath()+"*");
+    }
+
+    @Override
+    protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        //获取请求方法与请求路径
+        String requestMethod = request.getMethod().toLowerCase();
+        String requestPath = request.getPathInfo();
+        //获取Action处理器
+        Handler handler = ControllerHelper.getHandler(requestMethod, requestPath);
+        if(handler!=null){
+            //获取Controller及其bean的实例
+            Class<?> controllerClass = handler.getControllerClass();
+            Object controllerBean = BeanHelper.getBean(controllerClass);
+            //创建请求参数对象
+            Map<String,Object> paramMap=new HashMap<>();
+            Enumeration<String> parameterNames = request.getParameterNames();
+            while (parameterNames.hasMoreElements()){
+                String paramName = parameterNames.nextElement();
+                String paramValue=request.getParameter(paramName);
+                paramMap.put(paramName,paramValue);
+            }
+            String body= CodeUtil.decodeUrl(StreamUtil.getString(request.getInputStream()));
+            if(StringUtil.isNotEmpty(body)){
+                String[] params = StringUtil.split(body, '&');
+                if(ArrayUtil.isNotEmpty(params)){
+                    for (String param : params) {
+                        String[] array = StringUtil.split(param, '=');
+                        if(ArrayUtil.isNotEmpty(array)&&array.length==2){
+                            String paramName=array[0];
+                            String paramValue=array[1];
+                            paramMap.put(paramName,paramValue);
+
+                        }
+                    }
+                }
+            }
+            Param param=new Param(paramMap);
+            //调用action方法
+            Method actionMethod = handler.getMethod();
+            Object result = ReflectionUtil.invokeMethod(controllerBean, actionMethod, param);
+            //处理Action方法返回值
+            if(result instanceof View){
+                //返回JSP页面
+                View view= (View) result;
+                String path=view.getPath();
+                if(StringUtil.isNotEmpty(path)){
+                    if(path.startsWith("/")){
+                        response.sendRedirect(request.getContextPath()+path);
+                    }else {
+                        Map<String,Object> model=view.getModel();
+                        for (Map.Entry<String, Object> entry : model.entrySet()) {
+                            request.setAttribute(entry.getKey(),entry.getValue());
+                        }
+                        request.getRequestDispatcher(ConfigHelper.getAppJspPath()+path).forward(request,response);
+                    }
+                }
+            }else if(result instanceof Data){
+                //返回json数据
+                Data data= (Data) result;
+                Object model=data.getModel();
+                if(model!=null){
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    PrintWriter writer = response.getWriter();
+                    String json=JsonUtil.toJson(model);
+                    writer.write(json);
+                    writer.flush();
+                    writer.close();
+                }
+            }
+        }
+    }
+}
+
+```
+
+
+
+在DispatcherServlet中用到了几个新的工具类。
+
+其中，StreamUtil用于常用的流操作，代码如下：
+
+```java
+package com.lay.smartframework.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+/**
+ * @Description: 流操作工具类
+ * @Author: lay
+ * @Date: Created in 0:27 2019/2/1
+ * @Modified By:IntelliJ IDEA
+ */
+public class StreamUtil {
+    private static final Logger LOGGER= LoggerFactory.getLogger(StreamUtil.class);
+
+    /**
+     *
+     * @Description: 从输入流中获取字符串
+     * @param:
+     * @param is
+     * @return: java.lang.String
+     * @auther: lay
+     * @date: 0:28 2019/2/1
+     */
+    public static String getString(InputStream is){
+        StringBuilder sb=new StringBuilder();
+        try {
+            BufferedReader reader=new BufferedReader(new InputStreamReader(is));
+            String line;
+            while ((line=reader.readLine())!=null){
+                sb.append(line);
+            }
+        } catch (IOException e) {
+            LOGGER.error("get String failure",e);
+            throw new RuntimeException(e);
+        }
+        return sb.toString();
+    }
+}
+
+```
+
+CodeUtil类用于编码与解码的操作，代码如下：
+
+```java
+package com.lay.smartframework.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+
+/**
+ * @Description: 编码与解码操作工具类
+ * @Author: lay
+ * @Date: Created in 0:32 2019/2/1
+ * @Modified By:IntelliJ IDEA
+ */
+public class CodeUtil {
+    private static final Logger LOGGER= LoggerFactory.getLogger(CodeUtil.class);
+
+
+    /**
+     *
+     * @Description: 将url编码
+     * @param:
+     * @param source
+     * @return: java.lang.String
+     * @auther: lay
+     * @date: 0:37 2019/2/1
+     */
+    public static String encodeUrl(String source){
+        String target;
+        try {
+            target= URLEncoder.encode(source,"UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            LOGGER.error("encode url failure",e);
+            throw new RuntimeException(e);
+        }
+        return target;
+    }
+    /**
+     *
+     * @Description: 将url解码
+     * @param:
+     * @param source
+     * @return: java.lang.String
+     * @auther: lay
+     * @date: 0:38 2019/2/1
+     */
+    public static String decodeUrl(String source){
+        String target;
+        try {
+            target= URLDecoder.decode(source,"UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            LOGGER.error("decode url failure",e);
+            throw new RuntimeException(e);
+        }
+        return target;
+    }
+}
+
+```
+
+JsonUtil类用于处理Json和Pojoi之间的转换，基于Jackson实现，代码如下：
+
+```java
+package com.lay.smartframework.util;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+
+/**
+ * @Description: Json工具类
+ * @Author: lay
+ * @Date: Created in 0:39 2019/2/1
+ * @Modified By:IntelliJ IDEA
+ */
+public class JsonUtil {
+    private static final Logger LOGGER= LoggerFactory.getLogger(JsonUtil.class);
+
+    private static final ObjectMapper OBJECT_MAPPER=new ObjectMapper();
+
+    /**
+     *
+     * @Description: 将pojo转为json
+     * @param:
+     * @param obj
+     * @return: java.lang.String
+     * @auther: lay
+     * @date: 0:41 2019/2/1
+     */
+    public static<T> String toJson(T obj){
+        String json;
+        try {
+            json=OBJECT_MAPPER.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            LOGGER.error("convert pojo to json failure",e);
+            throw new RuntimeException(e);
+        }
+        return json;
+    }
+
+    /**
+     *
+     * @Description: 将json转为pojo
+     * @param:
+     * @param json
+     * @param type
+     * @return: T
+     * @auther: lay
+     * @date: 0:44 2019/2/1
+     */
+    public static<T> T fromJson(String json,Class<T> type){
+        T pojo;
+        try {
+            pojo=OBJECT_MAPPER.readValue(json,type);
+        } catch (Exception e) {
+            LOGGER.error("convert json to pojo failure",e);
+            throw new RuntimeException(e);
+        }
+        return pojo;
+    }
+}
+
+```
+
+至此，一款简单的MVC框架就开发完毕了，通过这个DispatcherServlet俩处理所有的请求，根据请求信息从ControllerHelper中获取对应的Action方法，然后使用反射技术调用Action方法，同时需要具体的传入方法参数，最后拿到返回值并判断返回值的类型，进行相应的处理。
+
+### 总结
+
+在本节中，我们搭建了一个简单的MVC框架，定义了一系列的注解：通过@Controller注解来定义Controller类；通过@Inject注解来实现依赖注入；通过@Action注解来定义Action方法。通过一些列Helper类来初始化MVC框架；通过DispatcherServlet来处理所有的请求；根据请求方法与请求路径来调用具体的Action方法，判断Action方法的返回值，若为View类型，则跳转至Jsp页面，若为Data类型，则返回Json数据。
+
+整个框架基本上能跑起来了，但里面还存在大量需要优化的地方。此外，还有一些非常好的特性尚提供，比如Aop（Aspect Oriented Programming）面向切面编程。我们可以使用这个特性来 实现一些横向拦截的操作，比如性能分析，日志收集，安全控制等等，下一张我们将介绍如何实现这个特性。
