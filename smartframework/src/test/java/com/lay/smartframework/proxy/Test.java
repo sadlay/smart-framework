@@ -1,5 +1,7 @@
 package com.lay.smartframework.proxy;
 
+import com.lay.smartframework.proxy.origin.HelloProxy;
+
 /**
  * @Description:
  * @Author: lay

@@ -1,9 +1,10 @@
-package com.lay.smartframework.proxy;
+package com.lay.smartframework.proxy.cglib;
 
+import com.lay.smartframework.proxy.Hello;
+import com.lay.smartframework.proxy.HelloImpl;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
-import org.junit.Before;
 
 import java.lang.reflect.Method;
 

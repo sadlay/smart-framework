@@ -1,4 +1,7 @@
-package com.lay.smartframework.proxy;
+package com.lay.smartframework.proxy.origin;
+
+import com.lay.smartframework.proxy.Hello;
+import com.lay.smartframework.proxy.HelloImpl;
 
 /**
  * @Description:
