@@ -13,6 +13,7 @@ import com.lay.smartframework.annotation.Service;
 public class HelloServiceImpl implements HelloService {
     @Override
     public String sayHello() {
+        //throw new RuntimeException("say hello error");
         return "hello world";
     }
 }

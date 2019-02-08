@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
  * @Date: Created in 16:01 2019/2/8
  * @Modified By:IntelliJ IDEA
  */
-public  class AspectProxy implements Proxy {
+public class AspectProxy implements Proxy,EnhanceMethod {
     private static final Logger LOGGER= LoggerFactory.getLogger(AspectProxy.class);
 
     @Override
@@ -38,26 +38,5 @@ public  class AspectProxy implements Proxy {
             end();
         }
         return result;
-    }
-
-    public void end(){
-
-    }
-
-    public void error(Class<?> cls, Method method, Object[] params, Exception e) {
-    }
-
-    public void after(Class<?> cls, Method method, Object[] params, Object result) {
-    }
-
-    public void before(Class<?> cls, Method method, Object[] params) {
-    }
-
-    public boolean intercept(Class<?> cls, Method method, Object[] params) {
-        LOGGER.info("begin intercept");
-        return true;
-    }
-
-    public void begin() {
     }
 }
