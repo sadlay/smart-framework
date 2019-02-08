@@ -93,4 +93,23 @@ public final class ClassHelper {
         return classSet;
     }
 
+    /**
+     *
+     * @Description: 获取应用包名下某父类（或接口）的所有子类（或实现类）
+     * @param:
+     * @param superClass
+     * @return: java.util.Set<java.lang.Class<?>>
+     * @auther: lay
+     * @date: 16:37 2019/2/8
+     */
+    public static Set<Class<?>> getClassSetBySuper(Class<?> superClass){
+        Set<Class<?>> classSet= new HashSet<Class<?>>();
+        for (Class<?> cls : CLASS_SET) {
+            if(superClass.isAssignableFrom(cls)&&!superClass.equals(cls)){
+                classSet.add(cls);
+            }
+        }
+        return classSet;
+    }
+
 }

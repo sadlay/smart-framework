@@ -65,8 +65,20 @@ public final class BeanHelper {
             throw new RuntimeException("get bean by class:{}"+cls+" has more than one instance");
         }
         return beanList.get(0);
+    }
 
 
-
+    /**
+     *
+     * @Description: 设置Bean实例
+     * @param:
+     * @param cls
+     * @param obj
+     * @return: void
+     * @auther: lay
+     * @date: 16:29 2019/2/8
+     */
+    public static void setBean(Class<?> cls,Object obj){
+        BEAN_MAP.put(cls,obj);
     }
 }
