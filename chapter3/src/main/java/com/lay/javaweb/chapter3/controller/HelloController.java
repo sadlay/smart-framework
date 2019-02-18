@@ -7,6 +7,7 @@ import com.lay.smartframework.annotation.Inject;
 import com.lay.smartframework.annotation.Service;
 import com.lay.smartframework.bean.Data;
 import com.lay.smartframework.bean.Param;
+import com.lay.smartframework.util.SessionUtil;
 
 /**
  * @Description:
@@ -21,6 +22,7 @@ public class HelloController {
 
     @Action("get:/hello")
     public Data hello(Param param){
+        SessionUtil.getSession().setAttribute("name2","layn");
         Data data=new Data(helloService.sayHello());
         return data;
     }
