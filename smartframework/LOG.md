@@ -7,3 +7,5 @@ java web框架
 3. 定义框架配置项——smart.properties
 4. 加载配置项。定义ConfigConstant常量类，使用ConfigHelper读取配置项
 5. 开发类加载器。
+
+wtf
