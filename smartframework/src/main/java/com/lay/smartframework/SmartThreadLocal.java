@@ -4,6 +4,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+
+/**
+ * 添加SmartThreadLocal
+ * @param <T>
+ */
 public class SmartThreadLocal<T> {
     private Map<Thread,T> container= Collections.synchronizedMap(new HashMap<Thread, T>());
 
