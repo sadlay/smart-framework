@@ -1,9 +1,11 @@
 package com.lay.smartframework.helper;
 
 import com.lay.smartframework.annotation.Aspect;
+import com.lay.smartframework.annotation.Service;
 import com.lay.smartframework.proxy.AspectProxy;
 import com.lay.smartframework.proxy.Proxy;
 import com.lay.smartframework.proxy.ProxyManager;
+import com.lay.smartframework.proxy.TransactionProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,19 +39,19 @@ public final class AopHelper {
         }
     }
 
-    private static Map<Class<?>, List<Proxy>> createTargetMap(Map<Class<?>, Set<Class<?>>> proxyMap) throws Exception{
-        Map<Class<?>,List<Proxy>> targetMap=new HashMap<>();
+    private static Map<Class<?>, List<Proxy>> createTargetMap(Map<Class<?>, Set<Class<?>>> proxyMap) throws Exception {
+        Map<Class<?>, List<Proxy>> targetMap = new HashMap<>();
         for (Map.Entry<Class<?>, Set<Class<?>>> proxyEntry : proxyMap.entrySet()) {
-            Class<?> proxyClass=proxyEntry.getKey();
-            Set<Class<?>> targetClassSet=proxyEntry.getValue();
+            Class<?> proxyClass = proxyEntry.getKey();
+            Set<Class<?>> targetClassSet = proxyEntry.getValue();
             for (Class<?> targetClass : targetClassSet) {
-                Proxy proxy=(Proxy)proxyClass.newInstance();
-                if(targetMap.containsKey(targetClass)){
+                Proxy proxy = (Proxy) proxyClass.newInstance();
+                if (targetMap.containsKey(targetClass)) {
                     targetMap.get(targetClass).add(proxy);
-                }else {
-                    List<Proxy> proxyList=new ArrayList<>();
+                } else {
+                    List<Proxy> proxyList = new ArrayList<>();
                     proxyList.add(proxy);
-                    targetMap.put(targetClass,proxyList);
+                    targetMap.put(targetClass, proxyList);
                 }
             }
         }
@@ -69,6 +71,17 @@ public final class AopHelper {
 
     private static Map<Class<?>, Set<Class<?>>> createProxyMap() throws Exception {
         Map<Class<?>, Set<Class<?>>> proxyMap = new HashMap<>();
+        addAspectProxy(proxyMap);
+        addTransactionProxy(proxyMap);
+        return proxyMap;
+    }
+
+    private static void addTransactionProxy(Map<Class<?>, Set<Class<?>>> proxyMap) {
+        Set<Class<?>> serviceClassSet = ClassHelper.getClassSet(Service.class);
+        proxyMap.put(TransactionProxy.class, serviceClassSet);
+    }
+
+    private static void addAspectProxy(Map<Class<?>, Set<Class<?>>> proxyMap) throws Exception {
         Set<Class<?>> proxyClassSet = ClassHelper.getClassSetBySuper(AspectProxy.class);
         for (Class<?> proxyClass : proxyClassSet) {
             if (proxyClass.isAnnotationPresent(Aspect.class)) {
@@ -77,7 +90,6 @@ public final class AopHelper {
                 proxyMap.put(proxyClass, targetClassSet);
             }
         }
-        return proxyMap;
     }
 }
 
